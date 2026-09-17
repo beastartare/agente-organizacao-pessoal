@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orbia — Organização Pessoal</title>
+    <meta
+      name="description"
+      content="Orbia: seu agente de organização pessoal inteligente no Google Agenda."
+    />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="header">
+      <div class="logo">🪐</div>
+      <div>
+        <h1>Orbia</h1>
+        <p>Seu agente de organização pessoal</p>
+      </div>
+    </div>
+
+    <div class="chat-area" id="chat-area">
+      <div class="message orbia">
+        <div class="label">Orbia</div>
+        <div class="bubble">
+          Olá! Sou a Orbia, sua assistente de organização. 🌟<br /><br />
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <textarea
+        id="user-input"
+        placeholder="Digite suas tarefas ou perguntas..."
+        rows="1"
+      ></textarea>
+      <button id="send-btn" title="Enviar">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M2 21l21-9L2 3v7l15 2-15 2z" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
