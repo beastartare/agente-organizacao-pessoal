@@ -1,0 +1,585 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+#orbia-popup {
+  width: 400px;
+  min-height: 560px;
+  background: #0f0f14;
+  color: #e2e2f0;
+  font-family: "Inter", sans-serif;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+#orbia-popup *,
+#orbia-panel * {
+  box-sizing: border-box;
+}
+
+#orbia-popup .header {
+  background: linear-gradient(135deg, #6c3fc5 0%, #3f8cc5 100%);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#orbia-popup .header .logo {
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+#orbia-popup .header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+#orbia-popup .header p {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 1px 0 0;
+}
+
+#orbia-popup .chat-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 360px;
+}
+
+#orbia-popup .message {
+  display: flex;
+  flex-direction: column;
+  max-width: 85%;
+  animation: popupFadeIn 0.2s ease;
+}
+
+@keyframes popupFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#orbia-popup .message.user {
+  align-self: flex-end;
+}
+
+#orbia-popup .message.orbia {
+  align-self: flex-start;
+}
+
+#orbia-popup .message .bubble {
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#orbia-popup .message.user .bubble {
+  background: linear-gradient(135deg, #6c3fc5, #3f8cc5);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+#orbia-popup .message.orbia .bubble {
+  background: #1e1e2e;
+  color: #e2e2f0;
+  border: 1px solid #2e2e42;
+  border-bottom-left-radius: 4px;
+}
+
+#orbia-popup .message .label {
+  font-size: 10px;
+  color: #555570;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+#orbia-popup .message.user .label {
+  text-align: right;
+}
+
+#orbia-popup .input-area {
+  padding: 12px 16px;
+  background: #0f0f14;
+  border-top: 1px solid #1e1e2e;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+#orbia-popup #user-input {
+  flex: 1;
+  background: #1e1e2e;
+  border: 1px solid #2e2e42;
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: #e2e2f0;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  resize: none;
+  outline: none;
+  max-height: 100px;
+}
+
+#orbia-popup #user-input:focus {
+  border-color: #6c3fc5;
+}
+
+#orbia-popup #user-input::placeholder {
+  color: #444460;
+}
+
+#orbia-popup #send-btn {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #6c3fc5, #3f8cc5);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+#orbia-popup #send-btn:hover {
+  opacity: 0.9;
+}
+
+#orbia-popup #send-btn:active {
+  transform: scale(0.95);
+}
+
+#orbia-popup #send-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: #fff;
+}
+
+#orbia-popup .typing {
+  display: flex;
+  gap: 4px;
+  padding: 12px 14px;
+  background: #1e1e2e;
+  border: 1px solid #2e2e42;
+  border-radius: 16px;
+  border-bottom-left-radius: 4px;
+  width: fit-content;
+}
+
+#orbia-popup .typing span {
+  width: 6px;
+  height: 6px;
+  background: #6c3fc5;
+  border-radius: 50%;
+  animation: popupBounce 1.2s infinite;
+}
+
+#orbia-popup .typing span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+#orbia-popup .typing span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes popupBounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+
+  40% {
+    transform: translateY(-6px);
+  }
+}
+
+#orbia-popup .toast {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%) translateY(60px);
+  background: #1e1e2e;
+  border: 1px solid #3f3f60;
+  color: #e2e2f0;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: transform 0.3s ease;
+  z-index: 100;
+}
+
+#orbia-popup .toast.show {
+  transform: translateX(-50%) translateY(0);
+}
+
+#orbia-popup .toast.success {
+  border-color: #3fc58c;
+  color: #3fc58c;
+}
+
+#orbia-popup .toast.error {
+  border-color: #c53f3f;
+  color: #ff7070;
+}
+
+#orbia-panel {
+  position: fixed !important;
+  top: 16px !important;
+  right: 16px !important;
+  width: 350px !important;
+  height: 520px !important;
+  max-width: 350px !important;
+  max-height: 520px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: #0f0f14 !important;
+  color: #e2e2f0 !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35) !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  font-family: "Inter", sans-serif !important;
+  box-sizing: border-box !important;
+}
+
+#orbia-panel *,
+#orbia-panel *::before,
+#orbia-panel *::after {
+  box-sizing: border-box;
+}
+
+#orbia-panel #orbia-header {
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #6c3fc5 0%, #3f8cc5 100%);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+#orbia-panel #orbia-header:active {
+  cursor: grabbing;
+}
+
+#orbia-panel #orbia-logo {
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+#orbia-panel #orbia-header-text {
+  flex: 1;
+  min-width: 0;
+}
+
+#orbia-panel #orbia-header-text h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+
+#orbia-panel #orbia-header-text p {
+  margin: 1px 0 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+#orbia-panel #orbia-close {
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+#orbia-panel #orbia-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+#orbia-panel #orbia-chat {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #0f0f14;
+}
+
+#orbia-panel .orbia-message {
+  display: flex;
+  flex-direction: column;
+  max-width: 90%;
+}
+
+#orbia-panel .orbia-message.user {
+  align-self: flex-end;
+}
+
+#orbia-panel .orbia-message.orbia {
+  align-self: flex-start;
+}
+
+#orbia-panel .orbia-label {
+  font-size: 10px;
+  color: #555570;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+#orbia-panel .orbia-message.user .orbia-label {
+  text-align: right;
+}
+
+#orbia-panel .orbia-bubble {
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+#orbia-panel .orbia-message.user .orbia-bubble {
+  background: linear-gradient(135deg, #6c3fc5, #3f8cc5);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+#orbia-panel .orbia-message.orbia .orbia-bubble {
+  background: #1e1e2e;
+  color: #e2e2f0;
+  border: 1px solid #2e2e42;
+  border-bottom-left-radius: 4px;
+}
+
+#orbia-panel #orbia-input-area {
+  flex-shrink: 0;
+  padding: 12px 16px;
+  background: #0f0f14;
+  border-top: 1px solid #1e1e2e;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+#orbia-panel #orbia-input {
+  flex: 1;
+  min-width: 0;
+  background: #1e1e2e;
+  border: 1px solid #2e2e42;
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: #e2e2f0;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  resize: none;
+  outline: none;
+  max-height: 100px;
+}
+
+#orbia-panel #orbia-input:focus {
+  border-color: #6c3fc5;
+}
+
+#orbia-panel #orbia-input::placeholder {
+  color: #444460;
+}
+
+#orbia-panel #orbia-send {
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(135deg, #6c3fc5, #3f8cc5);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+#orbia-panel #orbia-send:hover {
+  opacity: 0.9;
+}
+
+#orbia-panel #orbia-send:active {
+  transform: scale(0.95);
+}
+
+#orbia-panel #orbia-send svg {
+  width: 18px;
+  height: 18px;
+  fill: #fff;
+}
+
+#orbia-panel .orbia-typing {
+  display: flex;
+  gap: 4px;
+  padding: 12px 14px;
+  background: #1e1e2e;
+  border: 1px solid #2e2e42;
+  border-radius: 16px;
+  border-bottom-left-radius: 4px;
+  width: fit-content;
+}
+
+#orbia-panel .orbia-typing span {
+  width: 6px;
+  height: 6px;
+  background: #6c3fc5;
+  border-radius: 50%;
+  animation: orbiaBounce 1.2s infinite;
+}
+
+#orbia-panel .orbia-typing span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+#orbia-panel .orbia-typing span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes orbiaBounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+
+  40% {
+    transform: translateY(-6px);
+  }
+}
+
+#orbia-panel .orbia-schedule-card {
+  background: #1a1a28;
+  border: 1px solid #3f3f60;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-top: 4px;
+}
+
+#orbia-panel .orbia-schedule-card h4 {
+  font-size: 12px;
+  color: #a78bfa;
+  font-weight: 600;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+#orbia-panel .orbia-event-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 7px 0;
+  border-bottom: 1px solid #2a2a3e;
+}
+
+#orbia-panel .orbia-event-item:last-of-type {
+  border-bottom: none;
+}
+
+#orbia-panel .orbia-event-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6c3fc5;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+#orbia-panel .orbia-event-title {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#orbia-panel .orbia-event-time {
+  font-size: 11px;
+  color: #7070a0;
+  margin-top: 2px;
+}
+
+#orbia-panel .orbia-approve-btn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 9px;
+  background: linear-gradient(135deg, #6c3fc5, #3f8cc5);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    opacity 0.2s,
+    transform 0.1s;
+}
+
+#orbia-panel .orbia-approve-btn:hover {
+  opacity: 0.9;
+}
+
+#orbia-panel .orbia-approve-btn:active {
+  transform: scale(0.98);
+}
+
+#orbia-panel .orbia-approve-btn:disabled {
+  background: #2e2e42;
+  color: #77778f;
+  cursor: default;
+}
+
+#orbia-panel .orbia-approve-btn.approved {
+  background: #1e2e2a;
+  color: #3fc58c;
+}

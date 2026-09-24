@@ -23,7 +23,7 @@ TOKEN_FILE = os.path.join(
     "token.json"
 )
 
-
+# fax a conexão com a agenda do usuário
 def get_calendar_service():
     credentials = None
 

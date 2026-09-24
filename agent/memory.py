@@ -43,6 +43,28 @@ def init_db():
             interaction_id TEXT
         ) """)
 
+    columns = {
+        row[1]
+        for row in connection.execute(
+            "PRAGMA table_info(tasks)"
+        ).fetchall()
+    }
+
+    if "days_of_week" not in columns:
+        connection.execute(
+            "ALTER TABLE tasks ADD COLUMN days_of_week TEXT"
+        )
+
+    if "start_time" not in columns:
+        connection.execute(
+            "ALTER TABLE tasks ADD COLUMN start_time TEXT"
+        )
+
+    if "end_time" not in columns:
+        connection.execute(
+            "ALTER TABLE tasks ADD COLUMN end_time TEXT"
+        )
+
     connection.commit() # Salva as alterações no banco de dados
     connection.close() # Fecha a conexão com o banco de dados
 
@@ -123,7 +145,7 @@ def get_pending_plan():
 
     return json.loads(row[0])
 
-# Função para limpar o plano pendente do banco de dados
+# Função para limpar o plano pendente
 def clear_pending_plan():
     connection = connect_db()
 
@@ -134,12 +156,7 @@ def clear_pending_plan():
     connection.commit()
     connection.close()
 
-def save_task(
-    title,
-    description="",
-    task_type="task",
-    frequency=None
-):
+def save_task( title, description="", task_type="task", frequency=None, days_of_week=None, start_time=None, end_time=None):
     connection = connect_db()
 
     cursor = connection.execute(
@@ -152,12 +169,30 @@ def save_task(
               frequency = ?
               OR (frequency IS NULL AND ? IS NULL)
           )
+          AND (
+              days_of_week = ?
+              OR (days_of_week IS NULL AND ? IS NULL)
+          )
+          AND (
+              start_time = ?
+              OR (start_time IS NULL AND ? IS NULL)
+          )
+          AND (
+              end_time = ?
+              OR (end_time IS NULL AND ? IS NULL)
+          )
         """,
         (
             title,
             task_type,
             frequency,
-            frequency
+            frequency,
+            days_of_week,
+            days_of_week,
+            start_time,
+            start_time,
+            end_time,
+            end_time
         )
     )
 
@@ -173,15 +208,21 @@ def save_task(
             title,
             description,
             type,
-            frequency
+            frequency,
+            days_of_week,
+            start_time,
+            end_time
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
             title,
             description,
             task_type,
-            frequency
+            frequency,
+            days_of_week,
+            start_time,
+            end_time
         )
     )
 
@@ -190,12 +231,14 @@ def save_task(
 
     return True
 
+# função para buscar as tarefas
 def get_tasks():
     connection = connect_db()
 
     cursor = connection.execute(
         """
-        SELECT id, title, description, type, frequency
+        SELECT id, title, description, type, frequency,
+               days_of_week, start_time, end_time
         FROM tasks
         ORDER BY id
         """
@@ -213,7 +256,10 @@ def get_tasks():
             "title": row[1],
             "description": row[2],
             "type": row[3],
-            "frequency": row[4]
+            "frequency": row[4],
+            "days_of_week": row[5],
+            "start_time": row[6],
+            "end_time": row[7]
         })
 
     return tasks

@@ -1,29 +1,25 @@
 {
   "manifest_version": 3,
-
   "name": "Orbia",
-
   "version": "1.0.0",
-
   "description": "Seu agente de organização pessoal no Google Agenda",
-
   "permissions": ["storage", "activeTab"],
-
   "host_permissions": [
     "https://calendar.google.com/*",
     "http://localhost:5000/*",
     "http://127.0.0.1:5000/*"
   ],
-
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html"
   },
-
   "content_scripts": [
     {
       "matches": ["https://calendar.google.com/*"],
-      "js": ["content.js"],
-      "css": ["content.css"]
+      "js": ["app.js"],
+      "css": ["styles.css"]
     }
   ]
 }

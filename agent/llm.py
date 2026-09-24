@@ -1,31 +1,17 @@
 import json
-
 from google import genai
-
 from dotenv import load_dotenv
-
-from agent.tools import (
-    get_current_time,
-    get_calendar_events_for_period,
-    get_user_tasks,
-    add_user_task
-)
-
-from agent.memory import (
-    save_step,
-    save_message,
-    get_interaction_id,
-    save_interaction_id,
-    clear_interaction_id
-)
+from agent.tools import (get_current_time, get_calendar_events_for_period, get_user_tasks, add_user_task, get_schedule_constraints)
+from agent.memory import (save_step, save_message, get_interaction_id, save_interaction_id, clear_interaction_id)
 
 
+# carrego as variaveis do ambiente
 load_dotenv()
 
-
+# 
 client = genai.Client()
 
-
+# lista de funções que o meu agente pode utilizar para "facilitar" o seu trabalho
 tools = [
     {
         "type": "function",
@@ -42,10 +28,8 @@ tools = [
         "type": "function",
         "name": "get_calendar_events",
         "description": (
-            "Consulta os eventos do Google Calendar "
-            "do usuário. Use esta ferramenta quando "
-            "o usuário perguntar sobre compromissos, "
-            "tarefas, aulas, reuniões ou horários ocupados."
+            "Consulta os eventos existentes no Google Calendar "
+            "do usuário em um determinado período."
         ),
         "parameters": {
             "type": "object",
@@ -55,17 +39,53 @@ tools = [
                     "enum": [
                         "today",
                         "tomorrow",
-                        "week"
+                        "week",
+                        "this_week",
+                        "next_week"
                     ],
                     "description": (
-                        "Período da consulta: "
-                        "today para hoje, "
-                        "tomorrow para amanhã, "
-                        "week para os próximos 7 dias."
+                        "Período da consulta. "
+                        "Use today para hoje, tomorrow para amanhã, "
+                        "week para os próximos 7 dias, "
+                        "this_week para esta semana e "
+                        "next_week para a próxima semana."
                     )
                 }
             },
-            "required": ["period"]
+            "required": [
+                "period"
+            ]
+        }
+    },
+
+    {
+        "type": "function",
+        "name": "get_schedule_constraints",
+        "description": (
+            "Consulta os compromissos existentes no Google Calendar "
+            "e os compromissos fixos da rotina do usuário. "
+            "Deve ser utilizada antes de montar um cronograma."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "period": {
+                    "type": "string",
+                    "enum": [
+                        "today",
+                        "tomorrow",
+                        "week",
+                        "this_week",
+                        "next_week"
+                    ],
+                    "description": (
+                        "Período do cronograma."
+                    )
+                }
+            },
+            "required": [
+                "period"
+            ]
         }
     },
 
@@ -73,8 +93,7 @@ tools = [
         "type": "function",
         "name": "get_user_tasks",
         "description": (
-            "Consulta as tarefas e hábitos que o usuário "
-            "já informou anteriormente e que estão salvos "
+            "Consulta as tarefas e hábitos registrados "
             "na memória do Orbia."
         ),
         "parameters": {
@@ -88,8 +107,8 @@ tools = [
         "type": "function",
         "name": "add_user_task",
         "description": (
-            "Registra uma nova tarefa ou hábito informado "
-            "pelo usuário na memória do Orbia."
+            "Registra uma nova tarefa ou hábito na memória "
+            "do Orbia."
         ),
         "parameters": {
             "type": "object",
@@ -109,14 +128,31 @@ tools = [
                         "habit"
                     ],
                     "description": (
-                        "Tipo do registro: task para tarefa "
-                        "ou habit para hábito."
+                        "Tipo do registro."
                     )
                 },
                 "frequency": {
                     "type": "string",
                     "description": (
-                        "Frequência do hábito, quando aplicável."
+                        "Frequência da tarefa ou hábito."
+                    )
+                },
+                "days_of_week": {
+                    "type": "string",
+                    "description": (
+                        "Dias da semana separados por vírgula."
+                    )
+                },
+                "start_time": {
+                    "type": "string",
+                    "description": (
+                        "Horário de início no formato HH:MM."
+                    )
+                },
+                "end_time": {
+                    "type": "string",
+                    "description": (
+                        "Horário de término no formato HH:MM."
                     )
                 }
             },
@@ -127,346 +163,285 @@ tools = [
     }
 ]
 
-
+# conexão do nome da "ferramenta" com a função de fato
 available_tools = {
     "get_current_time": get_current_time,
     "get_calendar_events": get_calendar_events_for_period,
+    "get_schedule_constraints": get_schedule_constraints,
     "get_user_tasks": get_user_tasks,
     "add_user_task": add_user_task
 }
 
 
+#instrução do sistema
 SYSTEM_INSTRUCTION = """
-Você é Orbia, um agente pessoal de organização.
+Você é o Orbia, um agente de organização pessoal.
 
-Sua função é ajudar o usuário a organizar tarefas,
-compromissos e rotina.
+Seu objetivo é ajudar o usuário a organizar tarefas, compromissos,
+hábitos e horários utilizando as informações disponíveis no Google
+Calendar e na memória do usuário.
 
-========================================
-CONVERSA NORMAL
-========================================
+Quando o usuário informar uma tarefa, hábito ou compromisso que deve
+ser lembrado para o futuro, utilize add_user_task para registrar essa
+informação na memória.
 
-Responda normalmente a conversas casuais.
+Quando o usuário pedir para montar um cronograma, utilize
+get_schedule_constraints antes de elaborar a proposta.
 
-Não consulte o Google Calendar para perguntas que
-não dependem da agenda.
+A ferramenta get_schedule_constraints fornece:
 
-Exemplos:
+- calendar_events: eventos que já existem no Google Calendar.
+- recurring_blocks: compromissos fixos da rotina do usuário, como
+  trabalho, aulas, academia, taekwondo ou outros hábitos com dias e
+  horários definidos.
+- tasks_without_defined_time: tarefas ou hábitos registrados na
+  memória que não possuem horário definido.
 
-- Oi
-- Olá
-- Como você está?
-- O que você pode fazer?
+calendar_events e recurring_blocks representam horários ocupados.
 
-========================================
-CONSULTA AO CALENDAR
-========================================
+Nunca coloque uma nova atividade sobre um calendar_event ou
+recurring_block.
 
-Use a ferramenta get_calendar_events quando precisar
-saber quais compromissos o usuário possui.
+Os recurring_blocks fazem parte do cronograma e devem aparecer na
+programação apresentada ao usuário.
 
-Exemplos:
+Os recurring_blocks NÃO são novas atividades.
 
-- Quais são minhas tarefas hoje?
-- O que tenho amanhã?
-- Tenho algum compromisso amanhã?
-- Como está minha agenda essa semana?
+Nunca coloque recurring_blocks dentro de [ORBiA_EVENTS].
 
-Nunca invente eventos que não estejam no Calendar.
+Eventos que já existem no Google Calendar também não devem ser
+colocados dentro de [ORBiA_EVENTS].
 
-========================================
-PLANEJAMENTO
-========================================
+[ORBiA_EVENTS] deve conter somente as novas atividades que o Orbia
+está propondo para o usuário realizar.
 
-Quando o usuário pedir para organizar tarefas,
-estudos, trabalho ou rotina:
+Por exemplo, se o usuário trabalha de segunda a sexta das 08:00 às
+12:00, o trabalho deve aparecer no cronograma como compromisso fixo,
+mas não deve aparecer em [ORBiA_EVENTS].
 
-1. Entenda o que o usuário precisa fazer.
-2. Identifique o período envolvido.
-3. Consulte o Google Calendar para verificar
-   compromissos existentes.
-4. Considere os compromissos existentes como horários
-   que não devem ser ocupados.
-5. Analise as informações disponíveis na conversa.
-6. Monte uma proposta de organização.
-7. NÃO crie eventos no Google Calendar.
-8. Apresente a proposta ao usuário.
-9. Pergunte se ele deseja confirmar.
+Da mesma forma, se o usuário tem Taekwondo segunda e sexta às 19:00,
+o Taekwondo deve aparecer no cronograma, mas não deve aparecer em
+[ORBiA_EVENTS].
 
-========================================
-TAREFAS E HÁBITOS
-========================================
+O mesmo vale para qualquer outro recurring_block.
 
-Quando o usuário pedir para organizar sua rotina,
-considere também as tarefas e hábitos que aparecem
-no histórico da conversa.
+Ao apresentar um cronograma, mostre:
 
-Quando for necessário consultar tarefas e hábitos
-já registrados, use a ferramenta get_user_tasks.
+- eventos que já existem no Google Calendar;
+- compromissos fixos da rotina;
+- novas atividades sugeridas.
 
-Não invente tarefas ou hábitos.
+Não altere, remova ou mova compromissos existentes apenas para criar
+espaço para novas atividades.
 
-Diferencie:
+As novas atividades devem ser distribuídas somente nos horários livres.
 
-- compromissos existentes no Google Calendar;
-- tarefas que precisam ser realizadas;
-- hábitos recorrentes.
+Quando o usuário pedir um cronograma para "essa semana" ou
+"esta semana", use this_week.
 
-Ao criar uma proposta de organização, considere
-as tarefas e hábitos juntamente com os compromissos
-do Calendar.
+Quando o usuário pedir um cronograma para "semana que vem" ou
+"próxima semana", use next_week.
 
-IMPORTANTE:
+Quando o usuário pedir "amanhã", use tomorrow.
 
-Não registre automaticamente qualquer informação
-como tarefa ou hábito.
+Quando o usuário pedir "hoje", use today.
 
-Use add_user_task quando o usuário explicitamente
-pedir para registrar, salvar, lembrar ou adicionar
-uma tarefa ou hábito à memória.
+Se o usuário pedir um cronograma sem especificar um período,
+considere o período adequado ao contexto da solicitação.
 
-Informações como:
+Quando o cronograma possuir novas atividades, apresente a proposta
+primeiro e peça confirmação antes de criar os novos eventos.
 
-"de segunda a sexta eu tenho aula"
+Somente após a confirmação do usuário as novas atividades poderão
+ser criadas no Google Calendar.
 
-devem ser tratadas como compromissos fixos da rotina,
-e não automaticamente como uma tarefa ou hábito.
-
-========================================
-EVENTOS PROPOSTOS
-========================================
-
-Quando sua resposta incluir eventos que deveriam ser
-adicionados ao Google Calendar, adicione ao final da
-resposta um bloco exatamente neste formato:
+Quando houver novas atividades a serem criadas, use exatamente:
 
 [ORBiA_EVENTS]
 [
-    {
-        "title": "Nome do evento",
-        "start_datetime": "2026-09-16T14:00:00-03:00",
-        "end_datetime": "2026-09-16T16:00:00-03:00",
-        "description": "Descrição opcional"
-    }
+  {
+    "title": "Título do evento",
+    "start_datetime": "YYYY-MM-DDTHH:MM:SS-03:00",
+    "end_datetime": "YYYY-MM-DDTHH:MM:SS-03:00",
+    "description": "Descrição do evento"
+  }
 ]
 [/ORBiA_EVENTS]
 
-REGRAS DO BLOCO:
+Dentro de [ORBiA_EVENTS] coloque SOMENTE novas atividades.
 
-- Deve conter JSON válido.
-- Use aspas duplas.
-- Não coloque comentários dentro do JSON.
-- Use datas e horários completos.
-- Use o fuso horário -03:00.
-- Inclua somente eventos que estão sendo propostos.
-- Não inclua eventos que já existem no Calendar.
-- NÃO diga que os eventos foram criados.
-- Os eventos são apenas uma proposta até o usuário confirmar.
+Nunca coloque dentro de [ORBiA_EVENTS]:
 
-========================================
-CONFIRMAÇÃO
-========================================
+- eventos que já existem no Google Calendar;
+- recurring_blocks;
+- trabalho;
+- aulas fixas;
+- hábitos recorrentes;
+- compromissos fixos da rotina.
 
-A aplicação Python cuidará da confirmação e criação
-dos eventos.
+Não crie eventos duplicados.
 
-Você não deve criar eventos diretamente.
+O usuário deve decidir se deseja criar os novos eventos. Não crie
+eventos automaticamente apenas porque eles foram sugeridos.
+
+Ao apresentar o cronograma, deixe claro quais itens são compromissos
+existentes ou fixos e quais são novas atividades sugeridas.
 """
+
+
+# verifica se o usuário está pedindo para montar um cronograma 
+def _is_planning_request(user_input):
+    text = user_input.lower()
+
+    planning_terms = [
+        "cronograma",
+        "organizar",
+        "organize",
+        "planejar",
+        "planeje",
+        "agenda",
+        "rotina",
+        "distribuir",
+        "monte",
+        "montar"
+    ]
+
+    return any(
+        term in text
+        for term in planning_terms
+    )
+
+
+def _create_interaction(user_input, previous_interaction_id=None):
+
+    arguments = {
+        "model": "gemini-3.6-flash",
+        "tools": tools,
+        "system_instruction": SYSTEM_INSTRUCTION,
+        "input": user_input
+    }
+
+    if previous_interaction_id:
+        arguments[
+            "previous_interaction_id"
+        ] = previous_interaction_id
+
+    return client.interactions.create(
+        **arguments
+    )
+
+
+def _execute_function_calls(response):
+
+    function_results = []
+
+    for step in response.steps:
+
+        print(
+            f"[Orbia] Step recebido: {step.type}"
+        )
+
+        save_step(step)
+
+        if step.type == "function_call":
+
+            print(
+                f"[Orbia] Gemini solicitou a ferramenta: "
+                f"{step.name}"
+            )
+
+            function = available_tools.get(
+                step.name
+            )
+
+            if function is None:
+                raise Exception(
+                    f"Ferramenta não encontrada: {step.name}"
+                )
+
+            print(
+                f"[Orbia] Executando {step.name}..."
+            )
+
+            result = function(
+                **step.arguments
+            )
+
+            print(
+                f"[Orbia] Ferramenta {step.name} concluída."
+            )
+
+            function_result = {
+                "type": "function_result",
+                "name": step.name,
+                "call_id": step.id,
+                "result": [
+                    {
+                        "type": "text",
+                        "text": json.dumps(
+                            result,
+                            ensure_ascii=False
+                        )
+                    }
+                ]
+            }
+
+            save_message(
+                "function_result",
+                function_result
+            )
+
+            function_results.append(
+                function_result
+            )
+
+    return function_results
 
 
 def generate_response(user_input):
 
-    previous_interaction_id = get_interaction_id()
+    previous_interaction_id = (
+        get_interaction_id()
+    )
 
-    # tratamento de erros ao gerar a resposta do Gemini
     try:
 
-        print("[Orbia] Consultando Gemini...")
+        print(
+            "[Orbia] Consultando Gemini..."
+        )
 
-        if previous_interaction_id:
-
-            response = client.interactions.create(
-                model="gemini-3.6-flash",
-                previous_interaction_id=previous_interaction_id,
-                input=user_input,
-                tools=tools,
-                system_instruction=SYSTEM_INSTRUCTION
-            )
-
-        else:
-
-            response = client.interactions.create(
-                model="gemini-3.6-flash",
-                input=user_input,
-                tools=tools,
-                system_instruction=SYSTEM_INSTRUCTION
-            )
-
-        print("[Orbia] Gemini respondeu.")
-
-        function_results = []
-
-        # Processa todos os steps retornados pelo Gemini
-        for step in response.steps:
-
-            print(
-                f"[Orbia] Step recebido: {step.type}"
-            )
-
-            # Salva o step no banco de dados
-            save_step(step)
-
-            # Verifica se o Gemini solicitou uma ferramenta
-            if step.type == "function_call":
-
-                print(
-                    f"[Orbia] Gemini solicitou a ferramenta: "
-                    f"{step.name}"
-                )
-
-                function = available_tools.get(step.name)
-
-                if function is None:
-
-                    raise Exception(
-                        f"Ferramenta não encontrada: {step.name}"
-                    )
-
-                # Executa a ferramenta
-                print(
-                    f"[Orbia] Executando {step.name}..."
-                )
-
-                result = function(**step.arguments)
-
-                print(
-                    f"[Orbia] Ferramenta {step.name} concluída."
-                )
-
-                # Cria o resultado da ferramenta
-                function_result = {
-                    "type": "function_result",
-                    "name": step.name,
-                    "call_id": step.id,
-                    "result": [
-                        {
-                            "type": "text",
-                            "text": json.dumps(
-                                result,
-                                ensure_ascii=False
-                            )
-                        }
-                    ]
-                }
-
-                # Salva o resultado no banco
-                save_message(
-                    "function_result",
-                    function_result
-                )
-
-                function_results.append(function_result)
-
-        # Se nenhuma ferramenta foi chamada, significa que há uma resposta final
-        if not function_results:
-
-            save_interaction_id(response.id)
-
-            print("[Orbia] Resposta recebida.")
-
-            return response.output_text
+        response = _create_interaction(
+            user_input,
+            previous_interaction_id
+        )
 
         print(
-            "[Orbia] Enviando o resultado das ferramentas "
-            "novamente para o Gemini..."
+            "[Orbia] Gemini respondeu."
         )
-
-        response = client.interactions.create(
-            model="gemini-3.6-flash",
-            previous_interaction_id=response.id,
-            input=function_results,
-            tools=tools,
-            system_instruction=SYSTEM_INSTRUCTION
-        )
-
-        print("[Orbia] Gemini respondeu após executar as ferramentas.")
 
         while True:
 
-            function_results = []
-
-            # Processa todos os steps retornados pelo Gemini
-            for step in response.steps:
-
-                print(
-                    f"[Orbia] Step recebido: {step.type}"
+            function_results = (
+                _execute_function_calls(
+                    response
                 )
-
-                # Salva o step no banco de dados
-                save_step(step)
-
-                # Verifica se o Gemini solicitou uma ferramenta
-                if step.type == "function_call":
-
-                    print(
-                        f"[Orbia] Gemini solicitou a ferramenta: "
-                        f"{step.name}"
-                    )
-
-                    function = available_tools.get(step.name)
-
-                    if function is None:
-
-                        raise Exception(
-                            f"Ferramenta não encontrada: {step.name}"
-                        )
-
-                    # Executa a ferramenta
-                    print(
-                        f"[Orbia] Executando {step.name}..."
-                    )
-
-                    result = function(**step.arguments)
-
-                    print(
-                        f"[Orbia] Ferramenta {step.name} concluída."
-                    )
-
-                    # Cria o resultado da ferramenta
-                    function_result = {
-                        "type": "function_result",
-                        "name": step.name,
-                        "call_id": step.id,
-                        "result": [
-                            {
-                                "type": "text",
-                                "text": json.dumps(
-                                    result,
-                                    ensure_ascii=False
-                                )
-                            }
-                        ]
-                    }
-
-                    # Salva o resultado no banco
-                    save_message(
-                        "function_result",
-                        function_result
-                    )
-
-                    function_results.append(function_result)
+            )
 
             if not function_results:
 
-                save_interaction_id(response.id)
+                save_interaction_id(
+                    response.id
+                )
 
-                print("[Orbia] Resposta recebida.")
+                print(
+                    "[Orbia] Resposta recebida."
+                )
 
                 return response.output_text
 
             print(
-                "[Orbia] Enviando o resultado das ferramentas "
-                "novamente para o Gemini..."
+                "[Orbia] Enviando o resultado das "
+                "ferramentas novamente para o Gemini..."
             )
 
             response = client.interactions.create(
@@ -477,16 +452,24 @@ def generate_response(user_input):
                 system_instruction=SYSTEM_INSTRUCTION
             )
 
+            print(
+                "[Orbia] Gemini respondeu após "
+                "executar as ferramentas."
+            )
+
     except Exception as error:
 
         error_message = str(error)
 
-        if "429" in error_message or "Too Many Requests" in error_message:
+        if (
+            "429" in error_message
+            or "Too Many Requests" in error_message
+        ):
 
             print(
-                "[Orbia] O Gemini está temporariamente com "
-                "limite de requisições. Aguarde alguns segundos "
-                "e tente novamente."
+                "[Orbia] O Gemini está temporariamente "
+                "com limite de requisições. Aguarde alguns "
+                "segundos e tente novamente."
             )
 
         else:
@@ -495,90 +478,33 @@ def generate_response(user_input):
                 f"[Orbia] Erro ao gerar resposta: {error}"
             )
 
-            if previous_interaction_id:
+        if previous_interaction_id:
 
-                print(
-                    "[Orbia] Tentando iniciar uma nova conversa..."
+            print(
+                "[Orbia] Tentando iniciar uma nova conversa..."
+            )
+
+            clear_interaction_id()
+
+            try:
+
+                response = _create_interaction(
+                    user_input
                 )
 
-                clear_interaction_id()
+                while True:
 
-                try:
-
-                    response = client.interactions.create(
-                        model="gemini-3.6-flash",
-                        input=user_input,
-                        tools=tools,
-                        system_instruction=SYSTEM_INSTRUCTION
-                    )
-
-                    for step in response.steps:
-
-                        print(
-                            f"[Orbia] Step recebido: {step.type}"
+                    function_results = (
+                        _execute_function_calls(
+                            response
                         )
-
-                        # Salva o step no banco de dados
-                        save_step(step)
-
-                    function_results = []
-
-                    for step in response.steps:
-
-                        # Verifica se o Gemini solicitou uma ferramenta
-                        if step.type == "function_call":
-
-                            print(
-                                f"[Orbia] Gemini solicitou a ferramenta: "
-                                f"{step.name}"
-                            )
-
-                            function = available_tools.get(step.name)
-
-                            if function is None:
-
-                                raise Exception(
-                                    f"Ferramenta não encontrada: {step.name}"
-                                )
-
-                            # Executa a ferramenta
-                            print(
-                                f"[Orbia] Executando {step.name}..."
-                            )
-
-                            result = function(**step.arguments)
-
-                            print(
-                                f"[Orbia] Ferramenta {step.name} concluída."
-                            )
-
-                            # Cria o resultado da ferramenta
-                            function_result = {
-                                "type": "function_result",
-                                "name": step.name,
-                                "call_id": step.id,
-                                "result": [
-                                    {
-                                        "type": "text",
-                                        "text": json.dumps(
-                                            result,
-                                            ensure_ascii=False
-                                        )
-                                    }
-                                ]
-                            }
-
-                            # Salva o resultado no banco
-                            save_message(
-                                "function_result",
-                                function_result
-                            )
-
-                            function_results.append(function_result)
+                    )
 
                     if not function_results:
 
-                        save_interaction_id(response.id)
+                        save_interaction_id(
+                            response.id
+                        )
 
                         return response.output_text
 
@@ -590,92 +516,11 @@ def generate_response(user_input):
                         system_instruction=SYSTEM_INSTRUCTION
                     )
 
-                    while True:
+            except Exception as retry_error:
 
-                        function_results = []
-
-                        # Processa todos os steps retornados pelo Gemini
-                        for step in response.steps:
-
-                            print(
-                                f"[Orbia] Step recebido: {step.type}"
-                            )
-
-                            # Salva o step no banco de dados
-                            save_step(step)
-
-                            # Verifica se o Gemini solicitou uma ferramenta
-                            if step.type == "function_call":
-
-                                print(
-                                    f"[Orbia] Gemini solicitou a ferramenta: "
-                                    f"{step.name}"
-                                )
-
-                                function = available_tools.get(step.name)
-
-                                if function is None:
-
-                                    raise Exception(
-                                        f"Ferramenta não encontrada: {step.name}"
-                                    )
-
-                                # Executa a ferramenta
-                                print(
-                                    f"[Orbia] Executando {step.name}..."
-                                )
-
-                                result = function(**step.arguments)
-
-                                print(
-                                    f"[Orbia] Ferramenta {step.name} concluída."
-                                )
-
-                                # Cria o resultado da ferramenta
-                                function_result = {
-                                    "type": "function_result",
-                                    "name": step.name,
-                                    "call_id": step.id,
-                                    "result": [
-                                        {
-                                            "type": "text",
-                                            "text": json.dumps(
-                                                result,
-                                                ensure_ascii=False
-                                            )
-                                        }
-                                    ]
-                                }
-
-                                # Salva o resultado no banco
-                                save_message(
-                                    "function_result",
-                                    function_result
-                                )
-
-                                function_results.append(
-                                    function_result
-                                )
-
-                        if not function_results:
-
-                            save_interaction_id(response.id)
-
-                            return response.output_text
-
-                        response = client.interactions.create(
-                            model="gemini-3.6-flash",
-                            previous_interaction_id=response.id,
-                            input=function_results,
-                            tools=tools,
-                            system_instruction=SYSTEM_INSTRUCTION
-                        )
-
-                except Exception as retry_error:
-
-                    print(
-                        f"[Orbia] Erro ao iniciar nova conversa: "
-                        f"{retry_error}"
-                    )
+                print(
+                    f"[Orbia] Erro ao iniciar nova conversa: "
+                    f"{retry_error}"
+                )
 
         return None
